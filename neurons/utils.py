@@ -31,9 +31,7 @@ import bittensor as bt
 # Set your OpenAI API key
 api_key = os.getenv('OPENAI_API_KEY')
 from openai import OpenAI
-client = OpenAI(
-    api_key=api_key  # this is also the default, it can be omitted
-)
+
 model = "gpt-3.5-turbo"
 bt.logging.info(f"Model gpt. {model}")
 
@@ -388,6 +386,9 @@ def optimize_prompt(prompt):
     return prompt
 
 def optimize_prompt_2(prompt: str):
+    client = OpenAI(
+        api_key=api_key  # this is also the default, it can be omitted
+    )
     prompt_text = f"I have a task generate text to image with that promt '${prompt}'. can you optimize that prompt with more colorsfull and realistic, i just want only result i neaded."
     try:
         chat_completion = client.chat.completions.create(
