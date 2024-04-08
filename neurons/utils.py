@@ -29,7 +29,7 @@ from neurons.validator.utils import init_wandb
 import bittensor as bt
 
 # Set your OpenAI API key
-api_key = ""
+api_key = os.getenv('OPENAI_API_KEY')
 from openai import OpenAI
 client = OpenAI(
     api_key=api_key  # this is also the default, it can be omitted
@@ -377,7 +377,7 @@ def optimize_prompt(prompt):
             model=model,
         )
         bt.logging.debug(f"response gpt. {chat_completion}")
-        prompt_optimize = prompt +q ", " + chat_completion.choices[0].message.content.strip().replace("Result", "") + ", highly realistic, artsy, trending"
+        prompt_optimize = prompt +", " + chat_completion.choices[0].message.content.strip().replace("Result", "") + ", highly realistic, artsy, trending"
 
         bt.logging.debug(f"prompt gpt. {prompt_optimize}")
         return prompt_optimize
