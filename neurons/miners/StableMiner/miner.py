@@ -48,7 +48,37 @@ class StableMiner(BaseMiner):
         self.i2i_model.set_progress_bar_config(disable=True)
         self.i2i_model.scheduler = DPMSolverMultistepScheduler.from_config(
             self.i2i_model.scheduler.config
+        )### Load the text-to-image model
+        self.t2i_model = AutoPipelineForText2Image.from_pretrained(
+            self.config.miner.model,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            variant="fp16",
+        ).to(self.config.miner.device)
+        self.t2i_model.set_progress_bar_config(disable=True)
+        self.t2i_model.scheduler = DPMSolverMultistepScheduler.from_config(
+            self.t2i_model.scheduler.config
         )
+
+        ### Load the image to image model using the same pipeline (efficient)
+        self.i2i_model = AutoPipelineForImage2Image.from_pipe(self.t2i_model).to(
+            self.config.miner.device,
+        )
+        self.i2i_model.set_progress_bar_config(disable=True)
+        self.i2i_model.scheduler = DPMSolverMultistepScheduler.from_config(
+            self.i2i_model.scheduler.config
+        )
+
+        self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
+            "CompVis/stable-diffusion-safety-checker"
+        ).to(self.config.miner.device)
+        self.processor = CLIPImageProcessor()
+
+        ### Set up mapping for the different synapse types
+        self.mapping = {
+            "text_to_image": {"args": self.t2i_args, "model": self.t2i_model},
+            "image_to_image": {"args": self.i2i_args, "model": self.i2i_model},
+        }
 
         self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
             "CompVis/stable-diffusion-safety-checker"
@@ -73,3 +103,5 @@ class StableMiner(BaseMiner):
                 color_key="y",
             )
             warm_up(self.t2i_model, self.t2i_args)
+
+

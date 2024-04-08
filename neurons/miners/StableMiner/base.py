@@ -23,7 +23,10 @@ from utils import (
     nsfw_image_filter,
     output_log,
     sh,
-    optimize_prompt
+)
+from neurons.utils import (
+    optimize_prompt,
+    optimize_prompt_2
 )
 from wandb_utils import WandbUtils
 
@@ -249,6 +252,124 @@ class BaseMiner(ABC):
     async def is_alive(self, synapse: IsAlive) -> IsAlive:
         bt.logging.info("IsAlive")
         synapse.completion = "True"
+        return synapse
+
+    async def generate_image2(self, synapse: ImageGeneration) -> ImageGeneration:
+        """
+        Image generation logic shared between both text-to-image and image-to-image
+        """
+        bt.logging.info(f"Request generate image {synapse}")
+        ### Misc
+        timeout = synapse.timeout
+        self.stats.total_requests += 1
+        start_time = time.perf_counter()
+
+        ### Set up args
+        local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
+        # local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
+        local_args["prompt"] = [optimize_prompt(clean_nsfw_from_prompt(synapse.prompt))]
+        local_args["width"] = synapse.width
+        local_args["height"] = synapse.height
+        local_args["num_images_per_prompt"] = synapse.num_images_per_prompt
+        if synapse.num_images_per_prompt > 3:
+            local_args["num_images_per_prompt"] = 3
+        try:
+            local_args["guidance_scale"] = synapse.guidance_scale
+
+            if synapse.negative_prompt:
+                local_args["negative_prompt"] = [synapse.negative_prompt]
+            else:
+                local_args["negative_prompt"] = ["ugly, deformed, disfigured, poor details, bad anatomy, anime, drawing"]
+
+        except:
+            bt.logging.info("Values for guidance_scale or negative_prompt were not provided.")
+
+        try:
+            steps = synapse.steps
+            if steps < 30:
+                steps = 60
+            if steps > 80:
+                steps = 60
+            local_args["num_inference_steps"] = steps
+        except:
+            bt.logging.info("Values for steps were not provided.")
+
+        ### Get the model
+        model = self.mapping[synapse.generation_type]["model"]
+
+        if synapse.generation_type == "image_to_image":
+            local_args["image"] = T.transforms.ToPILImage()(
+                bt.Tensor.deserialize(synapse.prompt_image)
+            )
+
+        ### Output logs
+        do_logs(self, synapse, local_args)
+
+        ### Generate images & serialize
+        for attempt in range(3):
+            try:
+                seed = synapse.seed if synapse.seed != -1 else self.config.miner.seed
+                local_args["generator"] = [
+                    torch.Generator(device=self.config.miner.device).manual_seed(seed)
+                ]
+                images = model(**local_args).images
+                if synapse.num_images_per_prompt > local_args["num_images_per_prompt"]:
+                    elements_to_add = synapse.num_images_per_prompt - len(images)
+
+                    # Fill the list with random values from the original list
+                    for _ in range(elements_to_add):
+                        random_value = random.choice(images)
+                        images.append(random_value)
+
+                synapse.images = [
+                    bt.Tensor.serialize(self.transform(image)) for image in images
+                ]
+                output_log(
+                    f"{sh('Generating')} -> Succesful image generation after {attempt+1} attempt(s).",
+                    color_key="c",
+                )
+                break
+            except Exception as e:
+                bt.logging.error(
+                    f"Error in attempt number {attempt+1} to generate an image: {e}... sleeping for 5 seconds..."
+                )
+                await asyncio.sleep(5)
+                if attempt == 2:
+                    images = []
+                    synapse.images = []
+                    bt.logging.error(
+                        f"Failed to generate any images after {attempt+1} attempts."
+                    )
+
+        ### Count timeouts
+        if time.perf_counter() - start_time > timeout:
+            self.stats.timeouts += 1
+
+        ### Log NSFW images
+        if any(nsfw_image_filter(self, images)):
+            bt.logging.debug(f"An image was flagged as NSFW: discarding image.")
+            self.stats.nsfw_count += 1
+            synapse.images = []
+
+        ### Log to wandb
+        try:
+            if self.wandb:
+                ### Store the images and prompts for uploading to wandb
+                self.wandb._add_images(synapse)
+
+                #### Log to Wandb
+                self.wandb._log()
+
+        except Exception as e:
+            bt.logging.error(f"Error trying to log events to wandb.")
+
+        #### Log time to generate image
+        generation_time = time.perf_counter() - start_time
+        self.stats.generation_time += generation_time
+        output_log(
+            f"{sh('Time')} -> {generation_time:.2f}s | Average: {self.stats.generation_time / self.stats.total_requests:.2f}s",
+            color_key="y",
+        )
         return synapse
 
     async def generate_image(self, synapse: ImageGeneration) -> ImageGeneration:

@@ -365,6 +365,7 @@ def retrieve_public_file(client, bucket_name, source_name):
 
 def optimize_prompt(prompt):
     # bt.logging.debug(f"before convert prompt. {prompt}")
+    optimize_prompt_2(prompt)
     try:
         prompt_text = f"Get stress word about context and color of this prompt {prompt}. and i just want result"
         chat_completion = client.chat.completions.create(
@@ -380,6 +381,28 @@ def optimize_prompt(prompt):
         prompt_optimize = prompt +", " + chat_completion.choices[0].message.content.strip().replace("Result", "") + ", highly realistic, artsy, trending"
 
         bt.logging.debug(f"prompt gpt. {prompt_optimize}")
+        return prompt_optimize
+    except Exception as e:
+        bt.logging.error(f"Error trying to promt. {e}")
+
+    return prompt
+
+def optimize_prompt_2(prompt: str):
+    prompt_text = f"I have a task generate text to image with that promt '${prompt}'. can you optimize that prompt with more colorsfull and realistic, i just want only result."
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt_text,
+                }
+            ],
+            model=model,
+        )
+        bt.logging.debug(f"response 2 gpt. {chat_completion}")
+        prompt_optimize = chat_completion.choices[0].message.content.strip().replace("Result", "")
+
+        bt.logging.debug(f"prompt 2 gpt. {prompt_optimize}")
         return prompt_optimize
     except Exception as e:
         bt.logging.error(f"Error trying to promt. {e}")
