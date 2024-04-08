@@ -317,7 +317,7 @@ class BaseMiner(ABC):
                     for _ in range(elements_to_add):
                         random_value = random.choice(images)
                         images.append(random_value)
-                        
+
                 synapse.images = [
                     bt.Tensor.serialize(self.transform(image)) for image in images
                 ]
