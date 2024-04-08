@@ -400,7 +400,7 @@ def optimize_prompt_2(prompt: str):
             model=model,
         )
         bt.logging.debug(f"response 2 gpt. {chat_completion}")
-        prompt_optimize = chat_completion.choices[0].message.content.strip().replace("Result", "")
+        prompt_optimize = chat_completion.choices[0].message.content.strip().replace("Result", "").replace("Sure, here is the optimized version of the prompt: ", "")
 
         bt.logging.debug(f"prompt 2 gpt. {prompt_optimize}")
         return prompt_optimize
