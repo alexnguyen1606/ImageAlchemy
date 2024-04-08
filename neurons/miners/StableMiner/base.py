@@ -23,6 +23,7 @@ from utils import (
     nsfw_image_filter,
     output_log,
     sh,
+    optimize_prompt
 )
 from wandb_utils import WandbUtils
 
@@ -254,7 +255,7 @@ class BaseMiner(ABC):
         """
         Image generation logic shared between both text-to-image and image-to-image
         """
-
+        bt.logging.info(f"Request generate image {synapse}")
         ### Misc
         timeout = synapse.timeout
         self.stats.total_requests += 1
@@ -262,20 +263,31 @@ class BaseMiner(ABC):
 
         ### Set up args
         local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
-        local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
+        # local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
+        local_args["prompt"] = [optimize_prompt(clean_nsfw_from_prompt(synapse.prompt))]
         local_args["width"] = synapse.width
         local_args["height"] = synapse.height
         local_args["num_images_per_prompt"] = synapse.num_images_per_prompt
+        if synapse.num_images_per_prompt > 3:
+            local_args["num_images_per_prompt"] = 3
         try:
             local_args["guidance_scale"] = synapse.guidance_scale
 
             if synapse.negative_prompt:
                 local_args["negative_prompt"] = [synapse.negative_prompt]
+            else:
+                local_args["negative_prompt"] = ["ugly, deformed, disfigured, poor details, bad anatomy, anime, drawing"]
+
         except:
             bt.logging.info("Values for guidance_scale or negative_prompt were not provided.")
 
         try:
-            local_args["num_inference_steps"] = synapse.steps
+            steps = synapse.steps
+            if steps < 30:
+                steps = 60
+            if steps > 80:
+                steps = 60
+            local_args["num_inference_steps"] = steps
         except:
             bt.logging.info("Values for steps were not provided.")
 
@@ -298,7 +310,14 @@ class BaseMiner(ABC):
                     torch.Generator(device=self.config.miner.device).manual_seed(seed)
                 ]
                 images = model(**local_args).images
-                
+                if synapse.num_images_per_prompt > local_args["num_images_per_prompt"]:
+                    elements_to_add = synapse.num_images_per_prompt - len(images)
+
+                    # Fill the list with random values from the original list
+                    for _ in range(elements_to_add):
+                        random_value = random.choice(images)
+                        images.append(random_value)
+                        
                 synapse.images = [
                     bt.Tensor.serialize(self.transform(image)) for image in images
                 ]

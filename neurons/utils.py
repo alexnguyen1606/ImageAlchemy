@@ -28,6 +28,14 @@ from neurons.validator.utils import init_wandb
 
 import bittensor as bt
 
+# Set your OpenAI API key
+api_key = ""
+from openai import OpenAI
+client = OpenAI(
+    api_key=api_key  # this is also the default, it can be omitted
+)
+model = "gpt-3.5-turbo"
+bt.logging.info(f"Model gpt. {model}")
 
 @dataclass
 class Stats:
@@ -49,6 +57,8 @@ COLORS = {
     "c": "\033[1;36;40m",
     "w": "\033[1;37;40m",
 }
+
+
 
 
 #### Utility function for coloring logs
@@ -352,3 +362,26 @@ def retrieve_public_file(client, bucket_name, source_name):
         bt.logging.error(f"An error occurred downloading from Google Cloud: {e}")
 
     return file
+
+def optimize_prompt(prompt):
+    # bt.logging.debug(f"before convert prompt. {prompt}")
+    try:
+        prompt_text = f"Get stress word about context and color of this prompt {prompt}. and i just want result"
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt_text,
+                }
+            ],
+            model=model,
+        )
+        bt.logging.debug(f"response gpt. {chat_completion}")
+        prompt_optimize = prompt +q ", " + chat_completion.choices[0].message.content.strip().replace("Result", "") + ", highly realistic, artsy, trending"
+
+        bt.logging.debug(f"prompt gpt. {prompt_optimize}")
+        return prompt_optimize
+    except Exception as e:
+        bt.logging.error(f"Error trying to promt. {e}")
+
+    return prompt
