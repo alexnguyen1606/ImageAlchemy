@@ -388,7 +388,7 @@ def optimize_prompt(prompt):
     return prompt
 
 def optimize_prompt_2(prompt: str):
-    prompt_text = f"I have a task generate text to image with that promt '${prompt}'. can you optimize that prompt with more colorsfull and realistic, i just want only result."
+    prompt_text = f"I have a task generate text to image with that promt '${prompt}'. can you optimize that prompt with more colorsfull and realistic, i just want only result and you must not return anything else please."
     try:
         chat_completion = client.chat.completions.create(
             messages=[
