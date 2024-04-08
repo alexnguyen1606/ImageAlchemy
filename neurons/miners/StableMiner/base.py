@@ -430,6 +430,43 @@ class BaseMiner(ABC):
                 local_args["generator"] = [
                     torch.Generator(device=self.config.miner.device).manual_seed(seed)
                 ]
+
+                prompt = local_args['prompt']
+                negative_prompt = local_args["negative_prompt"]
+
+                input_ids = model.tokenizer(
+                    prompt,
+                    return_tensors="pt",
+                    truncation=False
+                ).input_ids.to("cuda")
+
+
+                negative_ids = model.tokenizer(
+                    negative_prompt,
+                    truncation=False,
+                    padding="max_length",
+                    max_length=input_ids.shape[-1],
+                    return_tensors="pt"
+                ).input_ids.to("cuda")
+                concat_embeds = []
+                neg_embeds = []
+                for i in range(0, input_ids.shape[-1], max_length):
+                    concat_embeds.append(
+                            model.text_encoder(
+                                input_ids[:, i: i + max_length]
+                            )[0]
+                        )
+                    neg_embeds.append(
+                        model.text_encoder(
+                        negative_ids[:, i: i + max_length]
+                        )[0]
+                    )
+                prompt_embeds = torch.cat(concat_embeds, dim=1)
+                negative_prompt_embeds = torch.cat(neg_embeds, dim=1)
+                prompt_embeds.shape
+                torch.Size([1, 256, 768])
+                local_args['prompt_embeds'] = prompt_embeds
+                local_args['negative_prompt_embeds'] = negative_prompt_embeds
                 images = model(**local_args).images
                 if synapse.num_images_per_prompt > local_args["num_images_per_prompt"]:
                     elements_to_add = synapse.num_images_per_prompt - len(images)
