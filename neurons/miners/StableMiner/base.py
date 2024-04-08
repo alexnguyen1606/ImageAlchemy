@@ -385,7 +385,7 @@ class BaseMiner(ABC):
         ### Set up args
         local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
         # local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
-        local_args["prompt"] = [optimize_prompt(clean_nsfw_from_prompt(synapse.prompt))]
+        local_args["prompt"] = [optimize_prompt_2(clean_nsfw_from_prompt(synapse.prompt))]
         local_args["width"] = synapse.width
         local_args["height"] = synapse.height
         local_args["num_images_per_prompt"] = synapse.num_images_per_prompt
