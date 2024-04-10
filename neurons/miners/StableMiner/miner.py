@@ -4,6 +4,8 @@ from diffusers import (
     AutoPipelineForImage2Image,
     AutoPipelineForText2Image,
     DPMSolverMultistepScheduler,
+    StableCascadeDecoderPipeline,
+    StableCascadePriorPipeline
 )
 from neurons.safety import StableDiffusionSafetyChecker
 from transformers import CLIPImageProcessor
@@ -41,6 +43,10 @@ class StableMiner(BaseMiner):
             self.t2i_model.scheduler.config
         )
 
+        self.prior = StableCascadePriorPipeline.from_pretrained("stabilityai/stable-cascade-prior", variant="bf16", torch_dtype=torch.bfloat16)
+        self.prior.enable_model_cpu_offload()
+        self.decoder = StableCascadeDecoderPipeline.from_pretrained("stabilityai/stable-cascade", variant="bf16", torch_dtype=torch.float16)
+        self.decoder.enable_model_cpu_offload()
         ### Load the image to image model using the same pipeline (efficient)
         self.i2i_model = AutoPipelineForImage2Image.from_pipe(self.t2i_model).to(
             self.config.miner.device,
