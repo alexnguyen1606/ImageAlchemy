@@ -430,14 +430,8 @@ class BaseMiner(ABC):
                 local_args["generator"] = [
                     torch.Generator(device=self.config.miner.device).manual_seed(seed)
                 ]
-                images = []
-                if synapse.generation_type == "text_to_image":
-                    prior_output = self.prior(**local_args)
-                    local_args["image_embeddings"] = prior_output.image_embeddings.to(torch.float16)
-                    local_args["output_type"] = "pil"
-                    images = self.decoder(**local_args)
-                else:
-                    images = model(**local_args).images
+                
+                images = model(**local_args).images
                 if synapse.num_images_per_prompt > local_args["num_images_per_prompt"]:
                     elements_to_add = synapse.num_images_per_prompt - len(images)
 
