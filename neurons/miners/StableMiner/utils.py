@@ -42,6 +42,7 @@ NSFW_WORDS = [
     "ass",
     "asshole",
     "tits",
+    "human face"
 ]
 
 
