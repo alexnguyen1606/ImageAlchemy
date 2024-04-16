@@ -430,7 +430,7 @@ class BaseMiner(ABC):
                 local_args["generator"] = [
                     torch.Generator(device=self.config.miner.device).manual_seed(seed)
                 ]
-                
+
                 images = model(**local_args).images
                 if synapse.num_images_per_prompt > local_args["num_images_per_prompt"]:
                     elements_to_add = synapse.num_images_per_prompt - len(images)
